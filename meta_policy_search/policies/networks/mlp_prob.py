@@ -1,6 +1,7 @@
 import tensorflow as tf
 from meta_policy_search.utils.utils import get_original_tf_name, get_last_scope
-
+import tensorflow_probability as tfp
+tfd = tfp.distributions
 
 def create_mlp(name,
                output_dim,
@@ -11,6 +12,7 @@ def create_mlp(name,
                input_var=None,
                w_init=tf.contrib.layers.xavier_initializer(),
                b_init=tf.zeros_initializer(),
+               #b_init=tf.constant_initializer(0.0),
                reuse=False
                ):
     """
@@ -41,6 +43,7 @@ def create_mlp(name,
         x = input_var
 
         for idx, hidden_size in enumerate(hidden_sizes):
+            '''
             x = tf.layers.dense(x,
                                 hidden_size,
                                 name='hidden_%d' % idx,
@@ -49,7 +52,9 @@ def create_mlp(name,
                                 bias_initializer=b_init,
                                 reuse=reuse,
                                 )
-
+            '''
+            x = tfp.layers.DenseReparameterization(hidden_size ,activation=hidden_nonlinearity)(x)
+        '''
         output_var = tf.layers.dense(x,
                                      output_dim,
                                      name='output',
@@ -58,8 +63,31 @@ def create_mlp(name,
                                      bias_initializer=b_init,
                                      reuse=reuse,
                                      )
+        '''
+        output_var = tfp.layers.DenseReparameterization(output_dim,activation=output_nonlinearity )(x)
 
     return input_var, output_var
+
+
+
+def output_weights(model_out,fast_weights):
+    j=0
+    #print('len_fast_weights=',len(fast_weights))
+    for i, layer in enumerate(model_out.layers):
+        #print(i,layer)
+        #print('j=',j)
+
+        #print(layer.kernel_posterior)  #  don't delete, very important
+        try:
+            layer.kernel_posterior =  tfd.Independent(tfd.Normal(loc=fast_weights[j],scale=tf.math.softplus(fast_weights[j+1])) ,reinterpreted_batch_ndims=len(layer.kernel_posterior.mean().shape))
+            layer.bias_posterior =  tfd.Independent(tfd.Deterministic(loc=fast_weights[j+2]) ,reinterpreted_batch_ndims=1)
+            j+=3
+        #print('tfp')
+        except AttributeError:
+            continue
+
+
+
 
 
 def forward_mlp(output_dim,
@@ -78,13 +106,34 @@ def forward_mlp(output_dim,
         hidden_nonlinearity (tf): non-linearity for the activations in the hidden layers
         output_nonlinearity (tf or None): output non-linearity. None results in no non-linearity being applied
         input_var (tf.placeholder or tf.Variable): Input of the network as a symbolic variable
-        mlp_params (OrderedDict): OrderedDict of the params of the neural network. 
+        mlp_params (OrderedDict): OrderedDict of the params of the neural network.
 
     Returns:
         input_var (tf.placeholder or tf.Variable): Input of the network as a symbolic variable
         output_var (tf.Tensor): Output of the network as a symbolic variable
 
     """
+    #print(mlp_params)
+    inp_var = tf.keras.layers.Input(shape=input_var.get_shape())
+    inp_var, out_var = create_mlp(name='mean_network_forward',
+                                             output_dim=output_dim,
+                                             hidden_sizes=hidden_sizes,
+                                             hidden_nonlinearity=hidden_nonlinearity,
+                                             output_nonlinearity=output_nonlinearity,
+                                             input_var=inp_var
+                                             )
+    model = tf.keras.Model(inputs=inp_var, outputs=out_var)
+    output_weights(model, list(mlp_params.values()))
+    output_var = model(input_var)
+
+
+
+
+
+
+
+
+    '''
     x = input_var
     idx = 0
     bias_added = False
@@ -116,5 +165,6 @@ def forward_mlp(output_dim,
             idx += 1
             bias_added = False
     output_var = x
-    return input_var, output_var # Todo why return input_var?
+    '''
 
+    return input_var, output_var # Todo why return input_var?
