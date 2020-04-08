@@ -3,6 +3,7 @@ from meta_policy_search.utils import Serializable
 import tensorflow as tf
 from collections import OrderedDict
 
+#print(tf.__VERSION__)
 
 class Policy(Serializable):
     """
@@ -75,7 +76,7 @@ class Policy(Serializable):
 
         Returns:
             (tuple) : array of arrays of actions for each env (meta_batch_size) x (batch_size) x (action_dim)
-                      and array of arrays of agent_info dicts 
+                      and array of arrays of agent_info dicts
         """
         raise NotImplementedError
 
@@ -284,5 +285,3 @@ class MetaPolicy(Policy):
         """
         return dict(list((self.policies_params_phs[i][key], self.policies_params_vals[i][key])
                          for key in self.policy_params_keys for i in range(self.meta_batch_size)))
-
-

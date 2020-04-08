@@ -194,4 +194,3 @@ class GaussianMLPPolicy(Policy):
             (dict) : a dictionary of tf placeholders for the policy output distribution
         """
         raise ["mean", "log_std"]
-

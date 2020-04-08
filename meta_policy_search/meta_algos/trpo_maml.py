@@ -30,7 +30,7 @@ class TRPOMAML(MAMLAlgo):
             **kwargs
             ):
         super(TRPOMAML, self).__init__(*args, **kwargs)
-
+        print('finish initial super class')
         assert inner_type in ["log_likelihood", "likelihood_ratio", "dice"]
         self.step_size = step_size
         self.inner_type = inner_type
@@ -50,20 +50,25 @@ class TRPOMAML(MAMLAlgo):
         if self.inner_type == 'likelihood_ratio':
             with tf.variable_scope("likelihood_ratio"):
                 likelihood_ratio_adapt = self.policy.distribution.likelihood_ratio_sym(action_sym,
-                                                                                       dist_info_old_sym, 
+                                                                                       dist_info_old_sym,
                                                                                        dist_info_new_sym)
             with tf.variable_scope("surrogate_loss"):
                 surr_obj_adapt = -tf.reduce_mean(likelihood_ratio_adapt * adv_sym)
 
         elif self.inner_type == 'log_likelihood':
             with tf.variable_scope("log_likelihood"):
+                #print(self.policy.policy_params)
+                #print(dist_info_new_sym['mean'])
                 log_likelihood_adapt = self.policy.distribution.log_likelihood_sym(action_sym, dist_info_new_sym)
+                #print('loglike_gradients=',tf.gradients(log_likelihood_adapt,list(self.policy.policy_params.values())))
             with tf.variable_scope("surrogate_loss"):
                 surr_obj_adapt = -tf.reduce_mean(log_likelihood_adapt * adv_sym)
+                #print('surr_gradients=',tf.gradients(surr_obj_adapt,list(self.policy.policy_params.values())))
 
         else:
             raise NotImplementedError
 
+        #print('surr_gradients=',tf.gradients(surr_obj_adapt,list(self.policy.policy_params.values())))
         return surr_obj_adapt
 
     def build_graph(self):
@@ -79,6 +84,7 @@ class TRPOMAML(MAMLAlgo):
 
             """ --- Build inner update graph for adapting the policy and sampling trajectories --- """
             # this graph is only used for adapting the policy and not computing the meta-updates
+            print("build inner adaptation")
             self.adapted_policies_params, self.adapt_input_ph_dict = self._build_inner_adaption()
 
             """ ----- Build graph for the meta-update ----- """
@@ -90,7 +96,11 @@ class TRPOMAML(MAMLAlgo):
             all_surr_objs, all_inner_kls = [], []
 
         for i in range(self.meta_batch_size):
+            print('adapted_forward ',i)
             dist_info_sym = self.policy.distribution_info_sym(obs_phs[i], params=None)
+            print('dist_info_sym=',dist_info_sym)
+            print("policy_params=",self.policy.policy_params)
+            print("check_grads=",tf.gradients(dist_info_sym['mean'],list(self.policy.policy_params.values())))
             distribution_info_vars.append(dist_info_sym)  # step 0
             current_policy_params.append(self.policy.policy_params) # set to real policy_params (tf.Variable)
 
@@ -99,14 +109,20 @@ class TRPOMAML(MAMLAlgo):
 
         with tf.variable_scope(self.name):
             """ Inner updates"""
+            print('adapt_var')
             for step_id in range(1, self.num_inner_grad_steps+1):
                 surr_objs, adapted_policy_params = [], []
-
+                print('step_id=',step_id)
                 # inner adaptation step for each task
                 for i in range(self.meta_batch_size):
+                    print(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
                     surr_loss = self._adapt_objective_sym(action_phs[i], adv_phs[i], dist_info_old_phs[i], distribution_info_vars[i])
+                    print('i=',i)
+                    #print('surr_loss=',surr_loss)
 
+                    print('current_policy_params[i]=',current_policy_params[i])
                     adapted_params_var = self._adapt_sym(surr_loss, current_policy_params[i])
+
 
                     adapted_policy_params.append(adapted_params_var)
                     surr_objs.append(surr_loss)

@@ -89,7 +89,7 @@ class MetaAlgo(object):
 class MAMLAlgo(MetaAlgo):
     """
     Provides some implementations shared between all MAML algorithms
-    
+
     Args:
         policy (Policy): policy object
         inner_lr (float) : gradient step size used for inner step
@@ -118,7 +118,7 @@ class MAMLAlgo(MetaAlgo):
             prefix (str) : a string to prepend to the name of each variable
 
         Returns:
-            (tuple) : a tuple containing lists of placeholders for each input type and meta task, 
+            (tuple) : a tuple containing lists of placeholders for each input type and meta task,
             and for convenience, a list containing all placeholders created
         """
         obs_phs, action_phs, adv_phs, dist_info_phs, dist_info_phs_list = [], [], [], [], []
@@ -175,16 +175,19 @@ class MAMLAlgo(MetaAlgo):
         for i in range(self.meta_batch_size):
             with tf.variable_scope("adapt_task_%i" % i):
                 with tf.variable_scope("adapt_objective"):
-                    distribution_info_new = self.policy.distribution_info_sym(obs_phs[i],
-                                                                              params=self.policy.policies_params_phs[i])
+                    print('self.policy.policies_params_phs[i]=',self.policy.policies_params_phs[i])
 
+                    distribution_info_new = self.policy.distribution_info_sym(obs_phs[i],params=self.policy.policies_params_phs[i])
+                    print('distribution_info_new=',distribution_info_new)
+                    print("check_grads_inner=",tf.gradients(distribution_info_new['mean'],list(self.policy.policies_params_phs[i].values())))
                     # inner surrogate objective
                     surr_obj_adapt = self._adapt_objective_sym(action_phs[i], adv_phs[i],
                                                                dist_info_old_phs[i], distribution_info_new)
 
                 # get tf operation for adapted (post-update) policy
-                with tf.variable_scope("adapt_step"):
+                #with tf.variable_scope("adapt_step"):
                     adapted_policy_param = self._adapt_sym(surr_obj_adapt, self.policy.policies_params_phs[i])
+                print('finished inner-adapt')
                 adapted_policies_params.append(adapted_policy_param)
 
         return adapted_policies_params, adapt_input_ph_dict
@@ -207,6 +210,7 @@ class MAMLAlgo(MetaAlgo):
         gradients = dict(zip(update_param_keys, grads))
 
         # gradient descent
+        print("gradients=",gradients)
         adapted_policy_params = [params_var[key] - tf.multiply(self.step_sizes[key], gradients[key])
                           for key in update_param_keys]
 

@@ -1,5 +1,5 @@
 from gym.core import Env
-from gym.envs.mujoco import MujocoEnv
+#from gym.envs.mujoco import MujocoEnv
 import numpy as np
 
 
@@ -47,7 +47,7 @@ class MetaEnv(Env):
             prefix (str) : prefix for logger
         """
         pass
-
+'''
 class RandomEnv(MetaEnv, MujocoEnv):
     """
     This class provides functionality for randomizing the physical parameters of a mujoco model
@@ -63,7 +63,7 @@ class RandomEnv(MetaEnv, MujocoEnv):
         super(RandomEnv, self).__init__(*args, **kwargs)
         assert set(rand_params) <= set(self.RAND_PARAMS_EXTENDED), \
             "rand_params must be a subset of " + str(self.RAND_PARAMS_EXTENDED)
-        self.log_scale_limit = log_scale_limit            
+        self.log_scale_limit = log_scale_limit
         self.rand_params = rand_params
         self.save_parameters()
 
@@ -134,3 +134,4 @@ class RandomEnv(MetaEnv, MujocoEnv):
         if 'geom_friction' in self.rand_params:
             self.init_params['geom_friction'] = self.model.geom_friction
         self.cur_params = self.init_params
+'''
